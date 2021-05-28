@@ -89,7 +89,18 @@ public class RosterManager {
      * @param slackUsers list of Slack user names
      */
     public void setSlackUsers(final List<String> slackUsers) {
-        this.slackUsers = slackUsers;
+        if (slackUsers != null) {
+            this.slackUsers = slackUsers;
+        }
+    }
+
+    /**
+     * Retrieves list of Slack user names.
+     *
+     * @return list of Slack user names
+     */
+     public List<String> getSlackUsers() {
+         return slackUsers;
     }
 
     /**
@@ -118,6 +129,7 @@ public class RosterManager {
         viewStateMap = WebRequestUtil.viewSearchMembersPage(httpClient, headers, viewStateMap);
         if (!WebRequestUtil.existsUser(httpClient, headers, person.getFirstName(), person.getLastName())) {
             // TODO: create user
+            WebRequestUtil.buildNewUserRequestBodyString(viewStateMap, person);
             LOGGER.info("Creating new entry");
         }
         return person;
@@ -130,6 +142,7 @@ public class RosterManager {
         WebRequestUtil.viewSearchMembersPage(httpClient, headers, viewStateMap);
         if (WebRequestUtil.existsUser(httpClient, headers, person.getFirstName(), person.getLastName())) {
             // TODO: update user
+            WebRequestUtil.buildUpdateUserRequestBodyString(viewStateMap, person);
             LOGGER.info("Updating existing entry");
         }
         return person;

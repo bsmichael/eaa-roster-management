@@ -36,6 +36,23 @@
       <version>1.2</version>
     </dependency>
     <dependency>
+      <groupId>org.apache.commons</groupId>
+      <artifactId>commons-collections4</artifactId>
+      <version>4.4</version>
+    </dependency>
+    <dependency>
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-core</artifactId>
+      <version>3.10.0</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.openclover</groupId>
+      <artifactId>clover</artifactId>
+      <version>4.4.0</version>
+      <scope>compile</scope>
+    </dependency>
+    <dependency>
       <groupId>org.jsoup</groupId>
       <artifactId>jsoup</artifactId>
       <version>1.13.1</version>
@@ -47,4 +64,68 @@
       <scope>test</scope>
     </dependency>
   </dependencies>
+  <reporting>
+    <excludeDefaults>true</excludeDefaults>
+    <plugins>
+      <plugin>
+        <groupId>org.openclover</groupId>
+        <artifactId>clover-maven-plugin</artifactId>
+        <configuration>
+          <!-- Verify that we can modify the location of the Clover database and that the directory is created if
+               it doesn't exist. Note: we're putting the configuration here and not in the build section because the
+               build section inherits from the reporting section but not the other way around... -->
+          <!--cloverDatabase>${project.build.directory}/customclover/myclover.db</cloverDatabase-->
+
+          <!-- Verify that we can generate all types of Clover reports -->
+          <generateHtml>true</generateHtml>
+          <generatePdf>true</generatePdf>
+          <generateXml>true</generateXml>
+
+          <!-- We ask the Clover plugin to generate a historical report but we don't have any historical data saved.
+               This is to verify it doesn't error out when this is the case. -->
+          <generateHistorical>true</generateHistorical>
+          <!--useFullyQualifiedJavaLang>false</useFullyQualifiedJavaLang-->
+        </configuration>
+      </plugin>
+    </plugins>
+  </reporting>
+   <build>
+     <plugins>
+       <plugin>
+         <groupId>org.openclover</groupId>
+         <artifactId>clover-maven-plugin</artifactId>
+         <version>4.4.0</version>
+         <configuration>
+           <!--includesTestSourceRoots>false</includesTestSourceRoots-->
+           <targetPercentage>80%</targetPercentage>
+
+           <!-- Verify that we can specify the JDK version for Clover's instrumentation -->
+           <jdk>1.9</jdk>
+
+           <!-- Verify that we can exclude some files from the instrumentation. Make sure the file we are excluding
+              is referenced by other classes to ensure excluding is only done at the Clover level -->
+           <excludes>
+             <exclude>**/*Test.java</exclude>
+           </excludes>
+         </configuration>
+         <executions>
+           <execution>
+             <id>main</id>
+             <phase>verify</phase>
+             <goals>
+               <goal>instrument</goal>
+               <goal>check</goal>
+             </goals>
+           </execution>
+           <execution>
+             <id>site</id>
+             <phase>pre-site</phase>
+             <goals>
+               <goal>instrument</goal>
+             </goals>
+           </execution>
+         </executions>
+       </plugin>
+     </plugins>
+   </build>
 </project>

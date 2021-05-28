@@ -151,7 +151,11 @@ public class WebRequestUtil {
             final HttpClient httpClient, final Map<String, Element> viewStateMap,
             final String username, final String password) {
         final Map<String, String> headers = new HashMap<>();
-        HttpRequest request = HttpRequest.newBuilder().uri(URI.create(RosterConstants.EAA_CHAPTERS_SITE_BASE + "/main.aspx")).GET().build();
+        HttpRequest request = HttpRequest
+                .newBuilder()
+                .uri(URI.create(RosterConstants.EAA_CHAPTERS_SITE_BASE + "/main.aspx"))
+                .GET()
+                .build();
         try {
             final HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
             final HttpHeaders responseHeaders = response.headers();
@@ -309,7 +313,7 @@ public class WebRequestUtil {
         return sb.toString();
     }
 
-    private static String buildNewUserRequestBodyString(final Map<String, String> headers, final Map<String, Element> viewStateMap, final Person person) {
+    public static String buildNewUserRequestBodyString(final Map<String, Element> viewStateMap, final Person person) {
         String requestBody = RosterConstants.EVENT_TARGET + RosterConstants.EQUALS +
                 RosterConstants.AMPERSAND + RosterConstants.EVENT_ARGUMENT + RosterConstants.EQUALS +
                 RosterConstants.AMPERSAND + RosterConstants.LAST_FOCUS + RosterConstants.EQUALS +
@@ -354,21 +358,25 @@ public class WebRequestUtil {
         return URLEncoder.encode(requestBody, StandardCharsets.UTF_8);
     }
 
-    private static String buildUpdateUserRequestBodyString(final Map<String, String> headers, final Person person) {
+    public static String buildUpdateUserRequestBodyString(final Map<String, Element> viewStateMap, final Person person) {
         final StringBuilder sb = new StringBuilder();
         addFormContent(sb, RosterConstants.EVENT_TARGET, RosterConstants.EMPTY_STRING);
         addFormContent(sb, RosterConstants.EVENT_ARGUMENT, RosterConstants.EMPTY_STRING);
         addFormContent(sb, RosterConstants.LAST_FOCUS, RosterConstants.EMPTY_STRING);
-        addFormContent(sb, RosterConstants.VIEW_STATE, headers
-                .get(RosterConstants.VIEW_STATE)
+        addFormContent(sb, RosterConstants.VIEW_STATE, getViewStateValue(viewStateMap.get(RosterConstants.VIEW_STATE))
                 .replaceAll("/", "%2F")
                 .replaceAll("=", "%3D")
                 .replaceAll("\\+", "%2B"));
-        addFormContent(sb, RosterConstants.VIEW_STATE_GENERATOR, headers.get(RosterConstants.VIEW_STATE_GENERATOR));
+        addFormContent(sb, RosterConstants.VIEW_STATE_GENERATOR,
+                getViewStateGeneratorValue(viewStateMap.get(RosterConstants.VIEW_STATE_GENERATOR)));
         addFormContent(sb, RosterConstants.VIEW_STATE_ENCRYPTED, RosterConstants.EMPTY_STRING);
         addFormContent(sb, RosterConstants.FIRST_NAME, RosterConstants.EMPTY_STRING);
         addFormContent(sb, RosterConstants.LAST_NAME, person.getLastName());
-        addFormContent(sb, RosterConstants.STATUS, person.getStatus().toString());
+        if (person.getStatus() != null) {
+            addFormContent(sb, RosterConstants.STATUS, person.getStatus().toString());
+        } else {
+            addFormContent(sb, RosterConstants.STATUS, Status.INACTIVE.toString());
+        }
         addFormContent(sb, RosterConstants.SEARCH_MEMBER_TYPE, RosterConstants.EMPTY_STRING);
         addFormContent(sb, RosterConstants.CURRENT_STATUS, RosterConstants.EMPTY_STRING);
         addFormContent(sb, RosterConstants.UPDATE_THIS_MEMBER_BUTTON, "Update");
@@ -390,7 +398,11 @@ public class WebRequestUtil {
         addFormContent(sb, RosterConstants.COUNTRY, Country.toDisplayString(person.getCountry()));
         addFormContent(sb, RosterConstants.BIRTH_DATE, MDY_SDF.format(person.getBirthDateAsDate()));
         addFormContent(sb, RosterConstants.JOIN_DATE, MDY_SDF.format(person.getJoinedAsDate()));
-        addFormContent(sb, RosterConstants.EXPIRATION_DATE, MDY_SDF.format(person.getExpiration()));
+        if (person.getExpiration() != null) {
+            addFormContent(sb, RosterConstants.EXPIRATION_DATE, MDY_SDF.format(person.getExpiration()));
+        } else {
+            // TODO do something
+        }
         addFormContent(sb, RosterConstants.OTHER_INFO, person.getOtherInfo());
         addFormContent(sb, RosterConstants.HOME_PHONE, person.getHomePhone());
         addFormContent(sb, RosterConstants.CELL_PHONE, person.getCellPhone());

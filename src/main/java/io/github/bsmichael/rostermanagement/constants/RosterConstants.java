@@ -1,4 +1,4 @@
-package com.starfireaviation.rostermanagement.constants;
+package io.github.bsmichael.rostermanagement.constants;
 
 /**
  * Roster Constants.

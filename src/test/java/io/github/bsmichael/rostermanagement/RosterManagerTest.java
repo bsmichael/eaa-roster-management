@@ -1,6 +1,10 @@
-package com.starfireaviation.rostermanagement;
+package io.github.bsmichael.rostermanagement;
 
-import com.starfireaviation.rostermanagement.model.Person;
+import com.github.javafaker.Faker;
+import io.github.bsmichael.rostermanagement.model.Country;
+import io.github.bsmichael.rostermanagement.model.Gender;
+import io.github.bsmichael.rostermanagement.model.Person;
+import io.github.bsmichael.rostermanagement.model.State;
 import org.apache.commons.collections4.CollectionUtils;
 import org.junit.Assert;
 import org.junit.Before;
@@ -11,14 +15,11 @@ import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 
 import java.io.BufferedReader;
-import java.io.File;
-import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.http.HttpClient;
 import java.net.http.HttpHeaders;
 import java.net.http.HttpResponse;
 import java.util.*;
-import java.util.function.BiPredicate;
 
 public class RosterManagerTest {
 
@@ -51,6 +52,8 @@ public class RosterManagerTest {
 
     private String eaaMemberSearchFileContents = null;
 
+    private Faker faker = new Faker(new Locale("en-US"));
+
     /**
      * Test setup.
      *
@@ -69,37 +72,23 @@ public class RosterManagerTest {
         MockitoAnnotations.openMocks(this);
 
         final Map<String, List<String>> headers = new HashMap<>();
-        headers.put("set-cookie", Arrays.asList("abc; 123"));
-        HttpHeaders responseHeaders = HttpHeaders.of(headers, (x, y) -> x == x);
+        headers.put("set-cookie", Collections.singletonList("abc; 123"));
+        HttpHeaders responseHeaders = HttpHeaders.of(headers, (x, y) -> x.equals(x));
         Mockito
                 .when(httpClient.send(ArgumentMatchers.any(), ArgumentMatchers.any()))
                 .thenReturn(httpResponse);
         Mockito.when(httpResponse.headers()).thenReturn(responseHeaders);
         Mockito.doReturn("<html></html>").when(httpResponse).body();
 
-        rosterManager = new RosterManager(USERNAME, PASSWORD);
-        rosterManager.setHttpClient(httpClient);
-    }
-
-    /**
-     * Test setting of HttpClient.
-     *
-     * @throws Exception when a test error occurs
-     */
-    @Test
-    public void setHttpClientTest() throws Exception {
-        rosterManager.setHttpClient(httpClient);
-
-        Mockito.verifyNoInteractions(httpClient);
+        rosterManager = new RosterManager(USERNAME, PASSWORD, httpClient);
     }
 
     /**
      * Test setting of Slack users.
      *
-     * @throws Exception when a test error occurs
      */
     @Test
-    public void setSlackUsersTest() throws Exception {
+    public void setSlackUsersTest() {
         rosterManager.setSlackUsers(new ArrayList<>());
 
         Assert.assertNotNull(rosterManager.getSlackUsers());
@@ -109,10 +98,9 @@ public class RosterManagerTest {
     /**
      * Test setting of Slack users.
      *
-     * @throws Exception when a test error occurs
      */
     @Test
-    public void setSlackUsersNullTest() throws Exception {
+    public void setSlackUsersNullTest() {
         rosterManager.setSlackUsers(null);
 
         Assert.assertNotNull(rosterManager.getSlackUsers());
@@ -141,9 +129,8 @@ public class RosterManagerTest {
      * @throws Exception when a test error occurs
      */
     @Test
-    public void createEntryTest() throws Exception {
-        final Person person = new Person();
-        final Person createdPerson = rosterManager.createEntry(person);
+    public void savePersonTest() throws Exception {
+        final Person createdPerson = rosterManager.savePerson(generatePerson());
 
         Assert.assertNotNull(createdPerson);
         Mockito.verify(httpClient, Mockito.times(4)).send(ArgumentMatchers.any(), ArgumentMatchers.any());
@@ -156,11 +143,10 @@ public class RosterManagerTest {
      * @throws Exception when a test error occurs
      */
     @Test
-    public void createEntryPersonExistsTest() throws Exception {
+    public void savePersonExistsTest() throws Exception {
         Mockito.doReturn("<html>lnkViewUpdateMember</html>").when(httpResponse).body();
 
-        final Person person = new Person();
-        final Person createdPerson = rosterManager.createEntry(person);
+        final Person createdPerson = rosterManager.savePerson(generatePerson());
 
         Assert.assertNotNull(createdPerson);
         Mockito.verify(httpClient, Mockito.times(4)).send(ArgumentMatchers.any(), ArgumentMatchers.any());
@@ -168,35 +154,52 @@ public class RosterManagerTest {
     }
 
     /**
-     * Test updating of a person in the roster management system.
+     * Test deleting a person from the roster management system.
      *
      * @throws Exception when a test error occurs
      */
     @Test
-    public void updateEntryTest() throws Exception {
-        final Person person = new Person();
-        final Person updatedPerson = rosterManager.updateEntry(person);
+    public void deletePersonTest() throws Exception {
+        Assert.assertTrue(rosterManager.deletePerson(1L));
 
-        Assert.assertNotNull(updatedPerson);
-        Mockito.verify(httpClient, Mockito.times(4)).send(ArgumentMatchers.any(), ArgumentMatchers.any());
-        Mockito.verifyNoMoreInteractions(httpClient);
+        // TODO mockito tests
     }
 
     /**
-     * Test updating of a person in the roster management system.
+     * Test deleting a person from the roster management system.
      *
      * @throws Exception when a test error occurs
      */
     @Test
-    public void updateEntryPersonExistsTest() throws Exception {
-        Mockito.doReturn("<html>lnkViewUpdateMember</html>").when(httpResponse).body();
+    public void deletePersonNullIDTest() throws Exception {
+        Assert.assertFalse(rosterManager.deletePerson(null));
 
-        final Person person = new Person();
-        final Person updatedPerson = rosterManager.updateEntry(person);
-
-        Assert.assertNotNull(updatedPerson);
-        Mockito.verify(httpClient, Mockito.times(4)).send(ArgumentMatchers.any(), ArgumentMatchers.any());
-        Mockito.verifyNoMoreInteractions(httpClient);
+        // TODO mockito tests
     }
 
+    private Person generatePerson() {
+        final Person person = new Person();
+        person.setFirstName(faker.name().firstName());
+        person.setLastName(faker.name().lastName());
+        person.setAddressLine1(faker.address().streetAddress());
+        person.setAddressLine2(faker.address().streetAddress());
+        person.setCity(faker.address().city());
+        person.setState(State.deriveState(faker.address().state()));
+        person.setAdditionalInfo(faker.letterify("??????"));
+        person.setAircraftBuilt(faker.letterify("??????"));
+        person.setAircraftOwned(faker.letterify("??????"));
+        person.setBackgroundCheck(faker.letterify("??????"));
+        person.setCellPhone(faker.phoneNumber().cellPhone());
+        person.setHomePhone(faker.phoneNumber().phoneNumber());
+        person.setCountry(Country.USA);
+        person.setEaaNumber(faker.numerify("######"));
+        person.setEaglePilot(Boolean.TRUE);
+        person.setYePilot(Boolean.TRUE);
+        person.setEmail(faker.internet().emailAddress());
+        person.setZipCode(faker.address().zipCode());
+        person.setNickname(faker.name().firstName());
+        person.setSpouse(faker.name().firstName());
+        person.setGender(Gender.MALE);
+        return person;
+    }
 }

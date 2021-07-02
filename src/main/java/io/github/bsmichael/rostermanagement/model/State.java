@@ -1,4 +1,4 @@
-package com.starfireaviation.rostermanagement.model;
+package io.github.bsmichael.rostermanagement.model;
 
 public enum State {
     /**
@@ -50,6 +50,7 @@ public enum State {
     /**
      * Gets displayable string value.
      *
+     * @param state State
      * @return displayable value
      */
     public static String getDisplayString(State state) {

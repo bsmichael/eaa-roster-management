@@ -1,6 +1,6 @@
-package com.starfireaviation.rostermanagement.model;
+package io.github.bsmichael.rostermanagement.model;
 
-import com.starfireaviation.rostermanagement.util.OtherInfoBuilder;
+import io.github.bsmichael.rostermanagement.util.OtherInfoBuilder;
 
 import java.util.ArrayList;
 import java.util.Arrays;

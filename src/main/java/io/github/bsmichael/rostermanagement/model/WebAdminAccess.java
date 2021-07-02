@@ -1,4 +1,4 @@
-package com.starfireaviation.rostermanagement.model;
+package io.github.bsmichael.rostermanagement.model;
 
 public enum WebAdminAccess {
     /**

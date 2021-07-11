@@ -15,6 +15,7 @@ import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.http.HttpClient;
 import java.net.http.HttpHeaders;
@@ -130,6 +131,21 @@ public class RosterManagerTest {
      */
     @Test
     public void savePersonTest() throws Exception {
+        final Person createdPerson = rosterManager.savePerson(generatePerson());
+
+        Assert.assertNotNull(createdPerson);
+        Mockito.verify(httpClient, Mockito.times(4)).send(ArgumentMatchers.any(), ArgumentMatchers.any());
+        Mockito.verifyNoMoreInteractions(httpClient);
+    }
+
+    /**
+     * Test adding of a person in the roster management system.
+     *
+     * @throws Exception when a test error occurs
+     */
+    @Test
+    public void savePersonFailedLoginTest() throws Exception {
+        Mockito.doThrow(new IOException()).when(httpClient).send(ArgumentMatchers.any(), ArgumentMatchers.any());
         final Person createdPerson = rosterManager.savePerson(generatePerson());
 
         Assert.assertNotNull(createdPerson);

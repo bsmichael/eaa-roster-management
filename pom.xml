@@ -120,6 +120,35 @@
       </plugin>
     </plugins>
   </reporting>
+  <profiles>
+    <profile>
+      <id>release-sign-artifacts</id>
+      <activation>
+        <property>
+          <name>performRelease</name>
+          <value>true</value>
+        </property>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-gpg-plugin</artifactId>
+            <version>3.0.1</version>
+            <executions>
+              <execution>
+                <id>sign-artifacts</id>
+                <phase>verify</phase>
+                <goals>
+                  <goal>sign</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
    <build>
      <plugins>
        <plugin>
@@ -172,30 +201,16 @@
          </executions>
        </plugin>
        <plugin>
-         <groupId>org.apache.maven.plugins</groupId>
-         <artifactId>maven-gpg-plugin</artifactId>
-         <version>3.0.1</version>
-         <executions>
-           <execution>
-             <id>sign-artifacts</id>
-             <phase>verify</phase>
-             <goals>
-               <goal>sign</goal>
-             </goals>
-           </execution>
-         </executions>
-       </plugin>
-       <plugin>
          <groupId>org.openclover</groupId>
          <artifactId>clover-maven-plugin</artifactId>
          <version>4.4.1</version>
          <configuration>
            <!--includesTestSourceRoots>false</includesTestSourceRoots-->
-           <targetPercentage>80%</targetPercentage>
-
+           <targetPercentage>95%</targetPercentage>
+           <generatePdf>true</generatePdf>
+           <generateHtml>true</generateHtml>
            <!-- Verify that we can specify the JDK version for Clover's instrumentation -->
            <jdk>1.9</jdk>
-
            <!-- Verify that we can exclude some files from the instrumentation. Make sure the file we are excluding
               is referenced by other classes to ensure excluding is only done at the Clover level -->
            <excludes>

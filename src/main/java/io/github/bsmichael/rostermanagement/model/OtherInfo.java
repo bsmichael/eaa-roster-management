@@ -84,10 +84,26 @@ public class OtherInfo {
 
     public String toString() {
         final List<String> elements = new ArrayList<>();
-        elements.add(String.format("RFID=[%s]", rfid));
-        elements.add(String.format("Slack=[%s]", slack));
-        elements.add(String.format("Family=[%s]", family.stream().collect(Collectors.joining(", "))));
-        elements.add(String.format("Description=[%s]", description));
+        if (rfid == null) {
+            elements.add("RFID=[]");
+        } else {
+            elements.add(String.format("RFID=[%s]", rfid));
+        }
+        if (slack == null) {
+            elements.add("Slack=[]");
+        } else {
+            elements.add(String.format("Slack=[%s]", slack));
+        }
+        if (family == null) {
+            elements.add("Family=[]");
+        } else {
+            elements.add(String.format("Family=[%s]", family.stream().collect(Collectors.joining(", "))));
+        }
+        if (description == null) {
+            elements.add("Description=[]");
+        } else {
+            elements.add(String.format("Description=[%s]", description));
+        }
         return elements.stream().collect(Collectors.joining("; "));
     }
 }

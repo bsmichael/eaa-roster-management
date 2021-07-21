@@ -84,16 +84,11 @@ public class RosterManagerTest {
         rosterManager = new RosterManager(USERNAME, PASSWORD, httpClient);
     }
 
-    /**
-     * Test setting of Slack users.
-     *
-     */
     @Test
-    public void setSlackUsersTest() {
-        rosterManager.setSlackUsers(new ArrayList<>());
+    public void testConstructor() {
+        rosterManager = new RosterManager(USERNAME, PASSWORD);
 
-        Assert.assertNotNull(rosterManager.getSlackUsers());
-        Assert.assertTrue(CollectionUtils.isEmpty(rosterManager.getSlackUsers()));
+        Assert.assertNotNull(rosterManager);
     }
 
     /**
@@ -101,11 +96,8 @@ public class RosterManagerTest {
      *
      */
     @Test
-    public void setSlackUsersNullTest() {
-        rosterManager.setSlackUsers(null);
-
-        Assert.assertNotNull(rosterManager.getSlackUsers());
-        Assert.assertTrue(CollectionUtils.isEmpty(rosterManager.getSlackUsers()));
+    public void setSlackUsersTest() {
+        rosterManager.setSlackUsers(new ArrayList<>());
     }
 
     /**
@@ -120,7 +112,7 @@ public class RosterManagerTest {
         final List<Person> people = rosterManager.getAllEntries();
         Assert.assertNotNull(people);
 
-        Mockito.verify(httpClient, Mockito.times(4)).send(ArgumentMatchers.any(), ArgumentMatchers.any());
+        Mockito.verify(httpClient, Mockito.times(5)).send(ArgumentMatchers.any(), ArgumentMatchers.any());
         Mockito.verifyNoMoreInteractions(httpClient);
     }
 
@@ -134,7 +126,7 @@ public class RosterManagerTest {
         final Person createdPerson = rosterManager.savePerson(generatePerson());
 
         Assert.assertNotNull(createdPerson);
-        Mockito.verify(httpClient, Mockito.times(4)).send(ArgumentMatchers.any(), ArgumentMatchers.any());
+        Mockito.verify(httpClient, Mockito.times(6)).send(ArgumentMatchers.any(), ArgumentMatchers.any());
         Mockito.verifyNoMoreInteractions(httpClient);
     }
 
@@ -149,7 +141,7 @@ public class RosterManagerTest {
         final Person createdPerson = rosterManager.savePerson(generatePerson());
 
         Assert.assertNotNull(createdPerson);
-        Mockito.verify(httpClient, Mockito.times(4)).send(ArgumentMatchers.any(), ArgumentMatchers.any());
+        Mockito.verify(httpClient, Mockito.times(5)).send(ArgumentMatchers.any(), ArgumentMatchers.any());
         Mockito.verifyNoMoreInteractions(httpClient);
     }
 
@@ -165,7 +157,7 @@ public class RosterManagerTest {
         final Person createdPerson = rosterManager.savePerson(generatePerson());
 
         Assert.assertNotNull(createdPerson);
-        Mockito.verify(httpClient, Mockito.times(4)).send(ArgumentMatchers.any(), ArgumentMatchers.any());
+        Mockito.verify(httpClient, Mockito.times(5)).send(ArgumentMatchers.any(), ArgumentMatchers.any());
         Mockito.verifyNoMoreInteractions(httpClient);
     }
 

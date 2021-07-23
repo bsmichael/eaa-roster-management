@@ -12,12 +12,12 @@ public class WebAdminAccessTest {
 
     @Test
     public void testGetDisplayString_ChapterReadOnly() {
-        Assert.assertEquals("1", WebAdminAccess.getDisplayString(WebAdminAccess.CHAPTER_READONLY));
+        Assert.assertEquals("3", WebAdminAccess.getDisplayString(WebAdminAccess.CHAPTER_READONLY));
     }
 
     @Test
     public void testGetDisplayString_NoAccess() {
-        Assert.assertEquals("0", WebAdminAccess.getDisplayString(WebAdminAccess.NO_ACCESS));
+        Assert.assertEquals("4", WebAdminAccess.getDisplayString(WebAdminAccess.NO_ACCESS));
     }
 
     @Test

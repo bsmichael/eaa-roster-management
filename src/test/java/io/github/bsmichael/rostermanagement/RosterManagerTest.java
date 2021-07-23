@@ -3,9 +3,11 @@ package io.github.bsmichael.rostermanagement;
 import com.github.javafaker.Faker;
 import io.github.bsmichael.rostermanagement.model.Country;
 import io.github.bsmichael.rostermanagement.model.Gender;
+import io.github.bsmichael.rostermanagement.model.MemberType;
 import io.github.bsmichael.rostermanagement.model.Person;
 import io.github.bsmichael.rostermanagement.model.State;
-import org.apache.commons.collections4.CollectionUtils;
+import io.github.bsmichael.rostermanagement.model.Status;
+import io.github.bsmichael.rostermanagement.model.WebAdminAccess;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -20,6 +22,10 @@ import java.io.InputStreamReader;
 import java.net.http.HttpClient;
 import java.net.http.HttpHeaders;
 import java.net.http.HttpResponse;
+import java.sql.Date;
+import java.text.SimpleDateFormat;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 
 public class RosterManagerTest {
@@ -54,6 +60,11 @@ public class RosterManagerTest {
     private String eaaMemberSearchFileContents = null;
 
     private Faker faker = new Faker(new Locale("en-US"));
+
+    /**
+     * Date formatter.
+     */
+    private static final SimpleDateFormat MDY_SDF = new SimpleDateFormat("MM/dd/yyyy");
 
     /**
      * Test setup.
@@ -136,6 +147,20 @@ public class RosterManagerTest {
      * @throws Exception when a test error occurs
      */
     @Test
+    public void savePersonMinimalTest() throws Exception {
+        final Person createdPerson = rosterManager.savePerson(generateMinimalPerson());
+
+        Assert.assertNotNull(createdPerson);
+        Mockito.verify(httpClient, Mockito.times(6)).send(ArgumentMatchers.any(), ArgumentMatchers.any());
+        Mockito.verifyNoMoreInteractions(httpClient);
+    }
+
+    /**
+     * Test adding of a person in the roster management system.
+     *
+     * @throws Exception when a test error occurs
+     */
+    @Test
     public void savePersonFailedLoginTest() throws Exception {
         Mockito.doThrow(new IOException()).when(httpClient).send(ArgumentMatchers.any(), ArgumentMatchers.any());
         final Person createdPerson = rosterManager.savePerson(generatePerson());
@@ -193,6 +218,7 @@ public class RosterManagerTest {
         person.setAddressLine2(faker.address().streetAddress());
         person.setCity(faker.address().city());
         person.setState(State.deriveState(faker.address().state()));
+        person.setExpiration(Date.from(Instant.now().plus(365, ChronoUnit.DAYS)));
         person.setAdditionalInfo(faker.letterify("??????"));
         person.setAircraftBuilt(faker.letterify("??????"));
         person.setAircraftOwned(faker.letterify("??????"));
@@ -208,6 +234,18 @@ public class RosterManagerTest {
         person.setNickname(faker.name().firstName());
         person.setSpouse(faker.name().firstName());
         person.setGender(Gender.MALE);
+        return person;
+    }
+
+    private Person generateMinimalPerson() {
+        final Person person = new Person();
+        person.setFirstName(faker.name().firstName());
+        person.setLastName(faker.name().lastName());
+        person.setJoined(MDY_SDF.format(java.util.Date.from(Instant.now())));
+        person.setExpiration(java.util.Date.from(Instant.now().plus(365, ChronoUnit.DAYS)));
+        person.setMemberType(MemberType.Regular);
+        person.setStatus(Status.ACTIVE);
+        person.setWebAdminAccess(WebAdminAccess.NO_ACCESS);
         return person;
     }
 }

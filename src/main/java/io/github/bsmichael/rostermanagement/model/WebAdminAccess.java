@@ -18,9 +18,9 @@ public enum WebAdminAccess {
         if (CHAPTER_ADMIN.equals(admin)) {
             return "2";
         } else if (CHAPTER_READONLY.equals(admin)) {
-            return "1";
+            return "3";
         }
-        return "0";
+        return "4";
     }
 
     public static WebAdminAccess fromDisplayString(final String displayString) {

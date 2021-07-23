@@ -161,6 +161,11 @@ public class RosterConstants {
     public final static String SEARCH_BUTTON = "ctl00$ContentPlaceHolder1$btnSearch=Search";
 
     /**
+     * eaachapters.org search button variable.
+     */
+    public final static String SHOW_MEMBER_ADD_PANEL_BUTTON = "ctl00$ContentPlaceHolder1$btnShowMemberAddPanel";
+
+    /**
      * ADD_NEW_MEMBER_BUTTON.
      */
     public final static String ADD_NEW_MEMBER_BUTTON = "ctl00$ContentPlaceHolder1$btnAddThisNewMember";
@@ -306,9 +311,19 @@ public class RosterConstants {
     public final static String YOUNG_EAGLE_PILOT = "ctl00$ContentPlaceHolder1$cbxYoungEaglePilot";
 
     /**
+     * eaachapters.org young eagle volunteer variable.
+     */
+    public final static String YOUNG_EAGLE_VOLUNTEER = "ctl00$ContentPlaceHolder1$cbxYoungEagleVolunteer";
+
+    /**
      * eaachapters.org eagle pilot variable.
      */
     public final static String EAGLE_PILOT = "ctl00$ContentPlaceHolder1$cbxEaglePilot";
+
+    /**
+     * eaachapters.org eagle flight volunteer variable.
+     */
+    public final static String EAGLE_FLIGHT_VOLUNTEER = "ctl00$ContentPlaceHolder1$cbxEagleFlightVolunteer";
 
     /**
      * eaachapters.org photo variable.

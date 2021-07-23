@@ -17,18 +17,20 @@ import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 
 import java.net.URI;
+import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpHeaders;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.text.ParseException;
+import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class RosterManagerService {
 
@@ -51,6 +53,10 @@ public class RosterManagerService {
      * Date formatter.
      */
     private static final SimpleDateFormat SDF = new SimpleDateFormat("yyyy-MM-dd");
+
+    private final Pattern viewStatePattern =
+            Pattern.compile(".*<input type=\"hidden\" name=\"__VIEWSTATE\" id=\"__VIEWSTATE\" value=\"(.*?)\" />.*",
+                    Pattern.DOTALL);
 
     private final Map<String, Element> viewStateMap = new HashMap<>();
 
@@ -84,7 +90,7 @@ public class RosterManagerService {
      * Performs login to EAA's roster management system.
      */
     public void login(final HttpClient httpClient, final Map<String, String> headers) {
-        LOGGER.info("Performing login...");
+        LOGGER.debug("Performing login...");
         final String uriStr = RosterConstants.EAA_CHAPTERS_SITE_BASE + "/main.aspx";
         final String requestBodyStr = buildLoginRequestBodyString(headers);
         HttpRequest.Builder builder = HttpRequest.newBuilder()
@@ -108,7 +114,7 @@ public class RosterManagerService {
     }
 
     public void logout(final HttpClient httpClient, final Map<String, String> headers) {
-        LOGGER.info("Performing logout...");
+        LOGGER.debug("Performing logout...");
         final String uriStr = RosterConstants.EAA_CHAPTERS_SITE_BASE + "/main.aspx";
         final String requestBodyStr = buildLogoutRequestBodyString(headers);
         HttpRequest.Builder builder = HttpRequest.newBuilder()
@@ -143,6 +149,7 @@ public class RosterManagerService {
         try {
             HttpResponse<String> response = httpClient.send(request,
                     HttpResponse.BodyHandlers.ofString());
+            LOGGER.debug("Received status code=" + response.statusCode());
 
             final Document doc = Jsoup.parse(response.body());
             viewStateMap.put(RosterConstants.VIEW_STATE, doc.getElementById(RosterConstants.VIEW_STATE));
@@ -157,22 +164,32 @@ public class RosterManagerService {
     /**
      * Gets searchmembers page in EAA's roster management system.
      */
-    public void addMember(final HttpClient httpClient, final Map<String, String> headers, final Person person) {
-        final String uriStr = RosterConstants.EAA_CHAPTERS_SITE_BASE + "/searchmembers.aspx";
-        final String requestBodyStr = buildNewUserRequestBodyString(person);
-        LOGGER.info("Creating new entry; requestBody = " + requestBodyStr);
-        final HttpRequest.Builder builder = HttpRequest.newBuilder()
-                .uri(URI.create(uriStr))
-                .POST(HttpRequest.BodyPublishers.ofString(requestBodyStr));
-        headers.put(RosterConstants.ACCEPT, "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/"+
-                "webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9");
-        for (final String key : headers.keySet()) {
-            builder.setHeader(key, headers.get(key));
-        }
-        final HttpRequest request = builder.build();
-
+    public void addMember(final HttpClient httpClient, final Map<String, String> headers,
+                          final String viewState, final Person person) {
         try {
+            final String uriStr = RosterConstants.EAA_CHAPTERS_SITE_BASE + "/searchmembers.aspx";
+            final HttpRequest.Builder builder = HttpRequest.newBuilder()
+                    .uri(URI.create(uriStr))
+                    .POST(buildNewUserRequestBodyString(person, viewState));
+            headers.put(RosterConstants.ACCEPT, "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/"+
+                    "webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9");
+            headers.put(RosterConstants.CONTENT_TYPE, "application/x-www-form-urlencoded");
+            headers.put("sec-ch-ua", "\" Not;A Brand\";v=\"99\", \"Google Chrome\";v=\"91\", \"Chromium\";v=\"91\"");
+            headers.put("sec-ch-ua-mobile", "?0");
+            headers.put("upgrade-insecure-requests", "1");
+            headers.put("user-agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.164 Safari/537.36");
+            headers.put("sec-fetch-site", "same-origin");
+            headers.put("sec-fetch-mode", "navigate");
+            headers.put("sec-fetch-user", "?1");
+            headers.put("sec-fetch-dest", "document");
+            //for (final String key : headers.keySet()) {
+            //    builder.setHeader(key, headers.get(key));
+            //}
+            final HttpRequest request = builder.build();
+
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            LOGGER.info("Received status code=" + response.statusCode());
+            LOGGER.info("Received headers=" + response.headers());
             LOGGER.info("[Add member] response: " + response.body());
         } catch (Exception e) {
             LOGGER.error("[Add Member] Error", e);
@@ -180,9 +197,7 @@ public class RosterManagerService {
     }
 
     public void updateMember(final HttpClient httpClient, final Map<String, String> headers, final Person person) {
-        final String uriStr = RosterConstants.EAA_CHAPTERS_SITE_BASE + "/searchmembers.aspx";
-        final String requestBodyStr = buildUpdateUserRequestBodyString(viewStateMap, person);
-        LOGGER.info("Updating existing entry: " + requestBodyStr);
+        LOGGER.info("Updating existing entry");
     }
 
     /**
@@ -192,7 +207,7 @@ public class RosterManagerService {
                                final Map<String, String> headers,
                                final String firstName,
                                final String lastName) {
-        LOGGER.info(String.format("Checking if %s %s exists...", firstName, lastName));
+        LOGGER.debug(String.format("Checking if %s %s exists...", firstName, lastName));
         final String uriStr = RosterConstants.EAA_CHAPTERS_SITE_BASE + "/searchmembers.aspx";
         final String requestBodyStr = buildExistsUserRequestBodyString(headers, firstName, lastName);
         HttpRequest.Builder builder = HttpRequest.newBuilder()
@@ -210,11 +225,44 @@ public class RosterManagerService {
         try {
             HttpResponse<String> response = httpClient.send(request,
                     HttpResponse.BodyHandlers.ofString());
+            LOGGER.debug("Received status code=" + response.statusCode());
             sb.append(response.body());
         } catch (Exception e) {
             LOGGER.error("[existsUser] Error", e);
         }
         return sb.toString().contains("lnkViewUpdateMember");
+    }
+
+    /**
+     * Checks if a user exists in EAA's roster management system.
+     */
+    public String startAddUser(final HttpClient httpClient,
+                              final Map<String, String> headers) {
+        LOGGER.debug("Starting add user process...");
+        final String uriStr = RosterConstants.EAA_CHAPTERS_SITE_BASE + "/searchmembers.aspx";
+        final String requestBodyStr = buildAddUserRequestBodyString(headers);
+        HttpRequest.Builder builder = HttpRequest.newBuilder()
+                .uri(URI.create(uriStr))
+                .POST(HttpRequest.BodyPublishers.ofString(requestBodyStr));
+        headers.remove(RosterConstants.VIEW_STATE);
+        headers.put(RosterConstants.ACCEPT, "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/"+
+                "webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9");
+        for (final String key : headers.keySet()) {
+            builder.setHeader(key, headers.get(key));
+        }
+
+        try {
+            final HttpResponse<String> response = httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofString());
+            LOGGER.debug("Received status code=" + response.statusCode());
+            LOGGER.debug("Received headers: " + response.headers());
+            final Matcher m = viewStatePattern.matcher(response.body());
+            if (m.matches()) {
+                return m.group(1);
+            }
+        } catch (Exception e) {
+            LOGGER.error("[startAddUser] Error", e);
+        }
+        return null;
     }
 
     /**
@@ -238,6 +286,7 @@ public class RosterManagerService {
         try {
             HttpResponse<String> response = httpClient.send(request,
                     HttpResponse.BodyHandlers.ofString());
+            LOGGER.info("Received status code=" + response.statusCode());
             sb.append(response.body());
         } catch (Exception e) {
             LOGGER.error("[fetchData] Error", e);
@@ -255,6 +304,7 @@ public class RosterManagerService {
                 .build();
         try {
             final HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            LOGGER.debug("Received status code=" + response.statusCode());
             final HttpHeaders responseHeaders = response.headers();
             final String cookieStr = responseHeaders.firstValue("set-cookie").orElse("");
             headers.put("cookie", cookieStr.substring(0, cookieStr.indexOf(";")));
@@ -390,121 +440,185 @@ public class RosterManagerService {
         return addDataFromHeaders(headers, sb, data);
     }
 
-    private String buildNewUserRequestBodyString(final Person person) {
+    private String buildAddUserRequestBodyString(final Map<String, String> headers) {
+        final StringBuilder sb = new StringBuilder();
         final List<String> data = new ArrayList<>();
-        data.add(RosterConstants.EVENT_TARGET + RosterConstants.EQUALS);
-        data.add(RosterConstants.EVENT_ARGUMENT + RosterConstants.EQUALS);
-        data.add(RosterConstants.VIEW_STATE + RosterConstants.EQUALS +
-                getViewStateValue(viewStateMap.get(RosterConstants.VIEW_STATE)));
-        data.add(RosterConstants.VIEW_STATE_GENERATOR + RosterConstants.EQUALS +
-                getViewStateGeneratorValue(viewStateMap.get(RosterConstants.VIEW_STATE_GENERATOR)));
-        data.add(RosterConstants.LAST_FOCUS + RosterConstants.EQUALS);
-        data.add(RosterConstants.VIEW_STATE_ENCRYPTED + RosterConstants.EQUALS);
-        data.add(RosterConstants.FIRST_NAME + RosterConstants.EQUALS);
-        data.add(RosterConstants.LAST_NAME + RosterConstants.EQUALS + person.getLastName());
-        data.add(RosterConstants.STATUS + RosterConstants.EQUALS + person.getStatus());
-        data.add(RosterConstants.SEARCH_MEMBER_TYPE + RosterConstants.EQUALS);
-        data.add(RosterConstants.CURRENT_STATUS + RosterConstants.EQUALS);
-        data.add(RosterConstants.ADD_NEW_MEMBER_BUTTON + RosterConstants.EQUALS + "Add+This+Person");
-        data.add(RosterConstants.TEXT_FIRST_NAME + RosterConstants.EQUALS + person.getFirstName());
-        data.add(RosterConstants.TEXT_LAST_NAME + RosterConstants.EQUALS + person.getLastName());
-        data.add(RosterConstants.TEXT_NICK_NAME + RosterConstants.EQUALS + person.getNickname());
-        data.add(RosterConstants.SPOUSE + RosterConstants.EQUALS + person.getSpouse());
-        data.add(RosterConstants.GENDER + RosterConstants.EQUALS + person.getGender());
-        data.add(RosterConstants.MEMBER_ID + RosterConstants.EQUALS + person.getEaaNumber());
-        data.add(RosterConstants.MEMBER_TYPE + RosterConstants.EQUALS + person.getMemberType());
-        data.add(RosterConstants.CURRENT_STANDING + RosterConstants.EQUALS + person.getStatus());
-        data.add(RosterConstants.ADMIN_LEVEL + RosterConstants.EQUALS + person.getWebAdminAccess());
-        data.add(RosterConstants.ADDRESS_LINE_1 + RosterConstants.EQUALS + person.getAddressLine1());
-        data.add(RosterConstants.ADDRESS_LINE_2 + RosterConstants.EQUALS + person.getAddressLine2());
-        data.add(RosterConstants.CITY + RosterConstants.EQUALS + person.getCity());
-        data.add(RosterConstants.STATE + RosterConstants.EQUALS + person.getState());
-        data.add(RosterConstants.ZIP_CODE + RosterConstants.EQUALS + person.getZipCode());
-        data.add(RosterConstants.COUNTRY + RosterConstants.EQUALS + person.getCountry());
-        data.add(RosterConstants.BIRTH_DATE + RosterConstants.EQUALS + person.getBirthDate());
-        data.add(RosterConstants.JOIN_DATE + RosterConstants.EQUALS + person.getJoined());
-        data.add(RosterConstants.EXPIRATION_DATE + RosterConstants.EQUALS + person.getExpiration());
-        data.add(RosterConstants.OTHER_INFO + RosterConstants.EQUALS + person.getOtherInfo());
-        data.add(RosterConstants.HOME_PHONE + RosterConstants.EQUALS + person.getHomePhone());
-        data.add(RosterConstants.CELL_PHONE + RosterConstants.EQUALS + person.getCellPhone());
-        data.add(RosterConstants.EMAIL + RosterConstants.EQUALS + person.getEmail());
-        data.add(RosterConstants.RATINGS + RosterConstants.EQUALS + person.getRatings());
-        data.add(RosterConstants.AIRCRAFT_OWNED + RosterConstants.EQUALS + person.getAircraftOwned());
-        data.add(RosterConstants.AIRCRAFT_PROJECT + RosterConstants.EQUALS + person.getAircraftProject());
-        data.add(RosterConstants.AIRCRAFT_BUILT + RosterConstants.EQUALS + person.getAircraftBuilt());
-        data.add(RosterConstants.ROW_COUNT + RosterConstants.EQUALS + "50");
-        return String.join("&", data);
+        data.add(RosterConstants.EVENT_TARGET);
+        data.add(RosterConstants.EVENT_ARGUMENT);
+        data.add(RosterConstants.VIEW_STATE);
+        data.add(RosterConstants.VIEW_STATE_GENERATOR);
+        data.add(RosterConstants.VIEW_STATE_ENCRYPTED);
+        data.add(RosterConstants.SHOW_MEMBER_ADD_PANEL_BUTTON + RosterConstants.EQUALS + "Add a new Person!");
+        data.add(RosterConstants.STATUS + "=Active");
+        data.add(RosterConstants.SEARCH_MEMBER_TYPE);
+        data.add(RosterConstants.CURRENT_STATUS);
+        return addDataFromHeaders(headers, sb, data);
     }
 
-    private String buildUpdateUserRequestBodyString(final Map<String, Element> viewStateMap, final Person person) {
-        final StringBuilder sb = new StringBuilder();
-        addFormContent(sb, RosterConstants.EVENT_TARGET, RosterConstants.EMPTY_STRING);
-        addFormContent(sb, RosterConstants.EVENT_ARGUMENT, RosterConstants.EMPTY_STRING);
-        addFormContent(sb, RosterConstants.LAST_FOCUS, RosterConstants.EMPTY_STRING);
-        addFormContent(sb, RosterConstants.VIEW_STATE, getViewStateValue(viewStateMap.get(RosterConstants.VIEW_STATE))
-                .replaceAll("/", "%2F")
-                .replaceAll("=", "%3D")
-                .replaceAll("\\+", "%2B"));
-        addFormContent(sb, RosterConstants.VIEW_STATE_GENERATOR,
+    private HttpRequest.BodyPublisher buildNewUserRequestBodyString(final Person person, final String viewState) {
+        final Map<Object, Object> data = new HashMap<>();
+        data.put(RosterConstants.EVENT_TARGET, RosterConstants.EMPTY_STRING);
+        data.put(RosterConstants.EVENT_ARGUMENT, RosterConstants.EMPTY_STRING);
+        data.put(RosterConstants.VIEW_STATE, viewState);
+        data.put(RosterConstants.VIEW_STATE_GENERATOR,
                 getViewStateGeneratorValue(viewStateMap.get(RosterConstants.VIEW_STATE_GENERATOR)));
-        addFormContent(sb, RosterConstants.VIEW_STATE_ENCRYPTED, RosterConstants.EMPTY_STRING);
-        addFormContent(sb, RosterConstants.FIRST_NAME, RosterConstants.EMPTY_STRING);
-        addFormContent(sb, RosterConstants.LAST_NAME, person.getLastName());
-        if (person.getStatus() != null) {
-            addFormContent(sb, RosterConstants.STATUS, person.getStatus().toString());
+        data.put(RosterConstants.VIEW_STATE_ENCRYPTED, RosterConstants.EMPTY_STRING);
+        data.put(RosterConstants.FIRST_NAME, RosterConstants.EMPTY_STRING);
+        data.put(RosterConstants.LAST_NAME, RosterConstants.EMPTY_STRING);
+        data.put(RosterConstants.STATUS, Status.getDisplayString(person.getStatus()));
+        data.put(RosterConstants.SEARCH_MEMBER_TYPE, RosterConstants.EMPTY_STRING);
+        data.put(RosterConstants.CURRENT_STATUS, RosterConstants.EMPTY_STRING);
+        data.put(RosterConstants.ADD_NEW_MEMBER_BUTTON, "Add This Person");
+        // Required Field
+        data.put(RosterConstants.TEXT_FIRST_NAME, person.getFirstName());
+        // Required Field
+        data.put(RosterConstants.TEXT_LAST_NAME, person.getLastName());
+        if (person.getNickname() != null) {
+            data.put(RosterConstants.TEXT_NICK_NAME, person.getNickname());
         } else {
-            addFormContent(sb, RosterConstants.STATUS, Status.INACTIVE.toString());
+            data.put(RosterConstants.TEXT_NICK_NAME, RosterConstants.EMPTY_STRING);
         }
-        addFormContent(sb, RosterConstants.SEARCH_MEMBER_TYPE, RosterConstants.EMPTY_STRING);
-        addFormContent(sb, RosterConstants.CURRENT_STATUS, RosterConstants.EMPTY_STRING);
-        addFormContent(sb, RosterConstants.UPDATE_THIS_MEMBER_BUTTON, "Update");
-        addFormContent(sb, RosterConstants.TEXT_FIRST_NAME, person.getFirstName());
-        addFormContent(sb, RosterConstants.TEXT_LAST_NAME, person.getLastName());
-        addFormContent(sb, RosterConstants.TEXT_NICK_NAME, person.getNickname());
-        addFormContent(sb, RosterConstants.SPOUSE, person.getSpouse());
-        addFormContent(sb, RosterConstants.GENDER, Gender.getDisplayString(person.getGender()));
-        addFormContent(sb, RosterConstants.MEMBER_ID, person.getEaaNumber());
-        addFormContent(sb, RosterConstants.MEMBER_TYPE, MemberType.toDisplayString(person.getMemberType()));
-        addFormContent(sb, RosterConstants.CURRENT_STANDING, Status.getDisplayString(person.getStatus()));
-        addFormContent(sb, RosterConstants.USER_NAME, person.getUsername());
-        addFormContent(sb, RosterConstants.ADMIN_LEVEL, WebAdminAccess.getDisplayString(person.getWebAdminAccess()));
-        addFormContent(sb, RosterConstants.ADDRESS_LINE_1, person.getAddressLine1());
-        addFormContent(sb, RosterConstants.ADDRESS_LINE_2, person.getAddressLine2());
-        addFormContent(sb, RosterConstants.CITY, person.getCity());
-        addFormContent(sb, RosterConstants.STATE, State.getDisplayString(person.getState()));
-        addFormContent(sb, RosterConstants.ZIP_CODE, person.getZipCode());
-        addFormContent(sb, RosterConstants.COUNTRY, Country.toDisplayString(person.getCountry()));
-        addFormContent(sb, RosterConstants.BIRTH_DATE, MDY_SDF.format(asDate(person.getBirthDate())));
-        addFormContent(sb, RosterConstants.JOIN_DATE, MDY_SDF.format(asDate(person.getJoined())));
-        if (person.getExpiration() != null) {
-            addFormContent(sb, RosterConstants.EXPIRATION_DATE, MDY_SDF.format(person.getExpiration()));
+        if (person.getSpouse() != null) {
+            data.put(RosterConstants.SPOUSE, person.getSpouse());
         } else {
-            // TODO do something
+            data.put(RosterConstants.SPOUSE, RosterConstants.EMPTY_STRING);
         }
-        addFormContent(sb, RosterConstants.OTHER_INFO, person.getOtherInfo());
-        addFormContent(sb, RosterConstants.HOME_PHONE, person.getHomePhone());
-        addFormContent(sb, RosterConstants.CELL_PHONE, person.getCellPhone());
-        addFormContent(sb, RosterConstants.EMAIL, person.getEmail());
-        addFormContent(sb, RosterConstants.RATINGS, person.getRatings());
-        addFormContent(sb, RosterConstants.AIRCRAFT_OWNED, person.getAircraftOwned());
-        addFormContent(sb, RosterConstants.AIRCRAFT_PROJECT, person.getAircraftProject());
-        addFormContent(sb, RosterConstants.AIRCRAFT_BUILT, person.getAircraftBuilt());
-        addFormContent(sb, RosterConstants.IMC, person.isImcClub() ? "on" : "off");
-        addFormContent(sb, RosterConstants.VMC, person.isVmcClub() ? "on" : "off");
-        addFormContent(sb, RosterConstants.YOUNG_EAGLE_PILOT, person.isYePilot() ? "on" : "off");
-        addFormContent(sb, RosterConstants.EAGLE_PILOT, person.isEaglePilot() ? "on" : "off");
-        sb
-                .append(RosterConstants.FORM_BOUNDARY)
-                .append(RosterConstants.PHOTO)
-                .append("\"; filename=\"\"\n")
-                .append("Content-Type: application/octet-stream\n\n");
-        addFormContent(sb, RosterConstants.PHOTO_FILE_NAME, RosterConstants.EMPTY_STRING);
-        addFormContent(sb, RosterConstants.PHOTO_FILE_TYPE, RosterConstants.EMPTY_STRING);
-        addFormContent(sb, RosterConstants.ROW_COUNT, "50");
-        sb
-                .append(RosterConstants.FORM_BOUNDARY)
-                .append("--");
-        return sb.toString();
+        data.put(RosterConstants.GENDER, Gender.getDisplayString(person.getGender()));
+        // Numbers only
+        if (person.getEaaNumber() != null) {
+            data.put(RosterConstants.MEMBER_ID, person.getEaaNumber());
+        } else {
+            data.put(RosterConstants.MEMBER_ID, RosterConstants.EMPTY_STRING);
+        }
+        // Required Field
+        data.put(RosterConstants.MEMBER_TYPE, MemberType.toDisplayString(person.getMemberType()));
+        // Required Field
+        data.put(RosterConstants.CURRENT_STANDING, Status.getDisplayString(person.getStatus()));
+        // Required Field
+        data.put(RosterConstants.ADMIN_LEVEL, WebAdminAccess.getDisplayString(person.getWebAdminAccess()));
+        if (person.getAddressLine1() != null) {
+            data.put(RosterConstants.ADDRESS_LINE_1, person.getAddressLine1());
+        } else {
+            data.put(RosterConstants.ADDRESS_LINE_1, RosterConstants.EMPTY_STRING);
+        }
+        if (person.getAddressLine2() != null) {
+            data.put(RosterConstants.ADDRESS_LINE_2, person.getAddressLine2());
+        } else {
+            data.put(RosterConstants.ADDRESS_LINE_2, RosterConstants.EMPTY_STRING);
+        }
+        if (person.getCity() != null) {
+            data.put(RosterConstants.CITY, person.getCity());
+        } else {
+            data.put(RosterConstants.CITY, RosterConstants.EMPTY_STRING);
+        }
+        data.put(RosterConstants.STATE, State.getDisplayString(person.getState()));
+        if (person.getZipCode() != null) {
+            data.put(RosterConstants.ZIP_CODE, person.getZipCode());
+        } else {
+            data.put(RosterConstants.ZIP_CODE, RosterConstants.EMPTY_STRING);
+        }
+        data.put(RosterConstants.COUNTRY, Country.toDisplayString(person.getCountry()));
+        // Must be in mm/dd/yyyy format
+        if (person.getBirthDate() != null) {
+            data.put(RosterConstants.BIRTH_DATE, person.getBirthDate());
+        } else {
+            data.put(RosterConstants.BIRTH_DATE, RosterConstants.EMPTY_STRING);
+        }
+        // Must be in mm/dd/yyyy format
+        if (person.getJoined() != null) {
+            data.put(RosterConstants.JOIN_DATE, person.getJoined());
+        } else {
+            data.put(RosterConstants.JOIN_DATE, RosterConstants.EMPTY_STRING);
+        }
+        // Must be in mm/dd/yyyy format
+        // Required Field
+        data.put(RosterConstants.EXPIRATION_DATE, MDY_SDF.format(person.getExpiration()));
+        if (person.getOtherInfo() != null) {
+            data.put(RosterConstants.OTHER_INFO, person.getOtherInfo());
+        } else {
+            data.put(RosterConstants.OTHER_INFO, RosterConstants.EMPTY_STRING);
+        }
+        if (person.getHomePhone() != null) {
+            data.put(RosterConstants.HOME_PHONE, person.getHomePhone()
+                    .replaceAll("\\.", RosterConstants.EMPTY_STRING)
+                    .replaceAll("-", RosterConstants.EMPTY_STRING)
+                    .replaceAll("\\(", RosterConstants.EMPTY_STRING)
+                    .replaceAll("\\)", RosterConstants.EMPTY_STRING));
+        } else {
+            data.put(RosterConstants.HOME_PHONE, RosterConstants.EMPTY_STRING);
+        }
+        if (person.getCellPhone() != null) {
+            data.put(RosterConstants.CELL_PHONE, person.getCellPhone()
+                    .replaceAll("\\.", RosterConstants.EMPTY_STRING)
+                    .replaceAll("-", RosterConstants.EMPTY_STRING)
+                    .replaceAll("\\(", RosterConstants.EMPTY_STRING)
+                    .replaceAll("\\)", RosterConstants.EMPTY_STRING));
+        } else {
+            data.put(RosterConstants.CELL_PHONE, RosterConstants.EMPTY_STRING);
+        }
+        if (person.getEmail() != null) {
+            data.put(RosterConstants.EMAIL, person.getEmail());
+        } else {
+            data.put(RosterConstants.EMAIL, RosterConstants.EMPTY_STRING);
+        }
+        if (person.getRatings() != null) {
+            data.put(RosterConstants.RATINGS, person.getRatings());
+        } else {
+            data.put(RosterConstants.RATINGS, RosterConstants.EMPTY_STRING);
+        }
+        if (person.getAircraftOwned() != null) {
+            data.put(RosterConstants.AIRCRAFT_OWNED, person.getAircraftOwned());
+        } else {
+            data.put(RosterConstants.AIRCRAFT_OWNED, RosterConstants.EMPTY_STRING);
+        }
+        if (person.getAircraftProject() != null) {
+            data.put(RosterConstants.AIRCRAFT_PROJECT, person.getAircraftProject());
+        } else {
+            data.put(RosterConstants.AIRCRAFT_PROJECT, RosterConstants.EMPTY_STRING);
+        }
+        if (person.getAircraftBuilt() != null) {
+            data.put(RosterConstants.AIRCRAFT_BUILT, person.getAircraftBuilt());
+        } else {
+            data.put(RosterConstants.AIRCRAFT_BUILT, RosterConstants.EMPTY_STRING);
+        }
+        if (person.isImcClub()) {
+            data.put(RosterConstants.IMC, "on");
+        }
+        if (person.isVmcClub()) {
+            data.put(RosterConstants.VMC, "on");
+        }
+        if (person.isYePilot()) {
+            data.put(RosterConstants.YOUNG_EAGLE_PILOT, "on");
+        }
+        if (person.isYeVolunteer()) {
+            data.put(RosterConstants.YOUNG_EAGLE_VOLUNTEER, "on");
+        }
+        if (person.isEaglePilot()) {
+            data.put(RosterConstants.EAGLE_PILOT, "on");
+        }
+        if (person.isEagleVolunteer()) {
+            data.put(RosterConstants.EAGLE_FLIGHT_VOLUNTEER, "on");
+        }
+        data.put(RosterConstants.ROW_COUNT, "50");
+        return ofFormData(data);
+    }
+
+    public static HttpRequest.BodyPublisher ofFormData(Map<Object, Object> data) {
+        final StringBuilder builder = new StringBuilder();
+        for (Map.Entry<Object, Object> entry : data.entrySet()) {
+            if (builder.length() > 0) {
+                builder.append("&");
+            }
+            final String key = URLEncoder.encode(entry.getKey().toString(), StandardCharsets.UTF_8);
+            final String value = URLEncoder.encode(entry.getValue().toString(), StandardCharsets.UTF_8);
+            //LOGGER.info("[ofFormData] appending " + key + RosterConstants.EQUALS + value);
+            builder.append(key);
+            builder.append(RosterConstants.EQUALS);
+            builder.append(value);
+        }
+        final String dataStr = builder.toString();
+        LOGGER.info("[ofFormData] built " + dataStr);
+        return HttpRequest.BodyPublishers.ofString(dataStr);
     }
 
     private String addDataFromHeaders(Map<String, String> headers, StringBuilder sb, List<String> data) {
@@ -538,18 +652,6 @@ public class RosterManagerService {
         return sb.toString();
     }
 
-    /**
-     * Adds a form content section to the provided StringBuilder object.
-     */
-    private void addFormContent(final StringBuilder sb, final String key, final String value) {
-        sb
-                .append(RosterConstants.FORM_BOUNDARY)
-                .append(RosterConstants.CONTENT_DISPOSITION_FORM_DATA_PREFIX)
-                .append(key)
-                .append(RosterConstants.FORM_DATA_SEPARATOR_DOUBLE_NL)
-                .append(value);
-    }
-
     private String getViewStateValue(final Element viewState) {
         if (viewState != null) {
             return viewState.attr("value");
@@ -562,17 +664,6 @@ public class RosterManagerService {
             return viewStateGenerator.attr("value");
         }
         return "55FE2EBC";
-    }
-
-    private Date asDate(final String dateStr) {
-        if (dateStr == null || "".equals(dateStr)) {
-            return ZERO_DATE;
-        }
-        try {
-            return SDF.parse(dateStr);
-        } catch (ParseException e) {
-            return ZERO_DATE;
-        }
     }
 
     /**

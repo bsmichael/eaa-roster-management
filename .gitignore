@@ -11,6 +11,13 @@
 *.iml
 .idea
 
+#VSCode files
+.classpath
+.factorypath
+.project
+.settings
+.vscode
+
 # Mobile Tools for Java (J2ME)
 .mtj.tmp/
 
